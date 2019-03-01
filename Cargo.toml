@@ -1,9 +1,10 @@
 [package]
-name = "reasonable"
-version = "0.1.0"
-description = "“Why did I block/mute/follow/unfollow X?!”"
 authors = ["Félix Saparelli <felix@passcod.name>"]
-publish = false
+description = "“Why did I block/mute/follow/unfollow X?!”"
 edition = "2018"
+name = "reasonable"
+publish = false
+version = "0.1.0"
 
 [dependencies]
+sodiumoxide = "0.2.0"
