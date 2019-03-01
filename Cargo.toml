@@ -1,0 +1,9 @@
+[package]
+name = "reasonable"
+version = "0.1.0"
+description = "“Why did I block/mute/follow/unfollow X?!”"
+authors = ["Félix Saparelli <felix@passcod.name>"]
+publish = false
+edition = "2018"
+
+[dependencies]
