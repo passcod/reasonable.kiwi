@@ -9,7 +9,7 @@ pub enum Action {
     Mute,
     Note, // just anything
     Warning, // like a note but explicitely negative
-    // TODO: List(String), // string = listname
+          // TODO: List(String), // string = listname
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

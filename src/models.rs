@@ -1,6 +1,6 @@
-use uuid::Uuid;
-use sodiumoxide::crypto::secretbox::{Key, Nonce, open, gen_nonce, seal};
 use crate::plain;
+use sodiumoxide::crypto::secretbox::{gen_nonce, open, seal, Key, Nonce};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Queryable)]
 pub struct User {
@@ -26,7 +26,7 @@ pub struct Reason {
     id: Uuid, // internal id
     user_id: Uuid,
     nonce: Vec<u8>, // encryption nonce
-    data: Vec<u8>, // encrypted data
+    data: Vec<u8>,  // encrypted data
 }
 
 impl Default for Reason {

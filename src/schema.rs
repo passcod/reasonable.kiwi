@@ -18,7 +18,4 @@ table! {
 
 joinable!(reasons -> users (user_id));
 
-allow_tables_to_appear_in_same_query!(
-    reasons,
-    users,
-);
+allow_tables_to_appear_in_same_query!(reasons, users,);
