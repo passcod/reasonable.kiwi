@@ -11,7 +11,9 @@ pub mod models;
 pub mod plain;
 
 fn main() {
-    dotenv().ok();
+    dotenv().expect("Dotenv failed to load");
+    sodiumoxide::init().expect("Sodium failed to init");
+
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let conn = PgConnection::establish(&database_url)
         .expect(&format!("Error connecting to {}", database_url));
@@ -27,5 +29,7 @@ fn main() {
         for user in results {
             println!("{:?}\n", user);
         }
+
+        println!("{:?}", models::User::default());
     }
 }
