@@ -14,9 +14,22 @@ pub enum Action {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Reason {
-    version: u8,
-    action: Action,
-    text: String, // max 500 chars
-    created: DateTime<Utc>,
-    updated: DateTime<Utc>,
+    pub version: u8,
+    pub action: Action,
+    pub text: String, // max 500 chars
+    pub created: DateTime<Utc>,
+    pub updated: DateTime<Utc>,
+}
+
+impl Reason {
+    pub fn new(action: Action, text: &str) -> Self {
+        let now = Utc::now();
+        Self {
+            version: 1,
+            action,
+            text: text.into(),
+            created: now,
+            updated: now,
+        }
+    }
 }
