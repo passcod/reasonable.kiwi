@@ -7,9 +7,12 @@ use dotenv::dotenv;
 use sodiumoxide::crypto::{box_ as abox, sealedbox, secretbox};
 use std::env;
 
+use byteorder::{LittleEndian, WriteBytesExt};
+
 pub mod models;
 pub mod plain;
 pub mod schema;
+mod active_ttl_cache;
 
 fn master_key() -> secretbox::Key {
     let arch_keys: (abox::PublicKey, abox::SecretKey) =
@@ -73,4 +76,23 @@ fn main() {
     println!("{:?}", reason);
     let reason = reason.open(&master_key);
     println!("{:?}", reason);
+
+    let keycache = active_ttl_cache::start(|id| {
+        get_key_from_id(id)
+    }, std::time::Duration::from_secs(600));
+
+    if let Some(key) = keycache.get(1).map(|entry| entry.clone()) {
+        // use the key
+        assert_eq!(key, vec![1, 0, 0, 0, 0, 0, 0, 0]);
+    }
+}
+
+fn get_key_from_id(id: usize) -> Option<Vec<u8>> {
+    let mut buf = Vec::with_capacity(8);
+    buf.write_u64::<LittleEndian>(id as u64);
+    Some(buf)
+}
+
+fn decrypt_it(foo: active_ttl_cache::Entry<usize, Vec<u8>>) -> Option<Vec<u8>> {
+    Some(foo.clone())
 }
