@@ -12,7 +12,6 @@ use byteorder::{LittleEndian, WriteBytesExt};
 pub mod models;
 pub mod plain;
 pub mod schema;
-mod active_ttl_cache;
 
 fn master_key() -> secretbox::Key {
     let arch_keys: (abox::PublicKey, abox::SecretKey) =

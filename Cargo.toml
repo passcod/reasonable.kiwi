@@ -1,2 +1,5 @@
 [workspace]
-members = ["core"]
+members = [
+  "core",
+  "active-ttl-cache",
+]
