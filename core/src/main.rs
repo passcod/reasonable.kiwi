@@ -6,8 +6,8 @@ use diesel::prelude::*;
 use dotenv::dotenv;
 use sodiumoxide::crypto::{box_ as abox, sealedbox, secretbox};
 use std::env;
-
-use byteorder::{LittleEndian, WriteBytesExt};
+use tokio::runtime::current_thread::block_on_all;
+use futures::Stream;
 
 pub mod models;
 pub mod plain;
@@ -66,32 +66,21 @@ fn main() {
     let master_key = master_key();
     let conn = database();
 
-    some_users(&conn);
-    some_reasons(&conn, &master_key);
+    // some_users(&conn);
+    // some_reasons(&conn, &master_key);
 
-    let reason = plain::Reason::new(plain::Action::Note, "good cunt");
-    println!("{:?}", reason);
-    let reason = models::Reason::default().update(&master_key, &reason).unwrap();
-    println!("{:?}", reason);
-    let reason = reason.open(&master_key);
-    println!("{:?}", reason);
+    let app_token = egg_mode::KeyPair::new(env!("TWITTER_APP_KEY"), env!("TWITTER_APP_SECRET"));
+    let user_token = egg_mode::KeyPair::new(env::var("TWITTER_USER_KEY").unwrap(), env::var("TWITTER_USER_SECRET").unwrap());
+    let token = egg_mode::Token::Access {
+        consumer: app_token,
+        access: user_token,
+    };
 
-    let keycache = active_ttl_cache::start(|id| {
-        get_key_from_id(id)
-    }, std::time::Duration::from_secs(600));
+    let user = block_on_all(egg_mode::verify_tokens(&token)).expect("tokens are invalid");
+    println!("User: “{}” @{} ({})", user.name, user.screen_name, user.id);
 
-    if let Some(key) = keycache.get(1).map(|entry| entry.clone()) {
-        // use the key
-        assert_eq!(key, vec![1, 0, 0, 0, 0, 0, 0, 0]);
-    }
-}
-
-fn get_key_from_id(id: usize) -> Option<Vec<u8>> {
-    let mut buf = Vec::with_capacity(8);
-    buf.write_u64::<LittleEndian>(id as u64);
-    Some(buf)
-}
-
-fn decrypt_it(foo: active_ttl_cache::Entry<usize, Vec<u8>>) -> Option<Vec<u8>> {
-    Some(foo.clone())
+    block_on_all(egg_mode::list::ownerships(&user.id, &token).for_each(|list| {
+        println!("{}: {}\n\n{}\n-----\n", list.id, list.name, list.description);
+        Ok(())
+    })).expect("cannot get list list");
 }
