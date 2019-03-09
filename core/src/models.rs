@@ -8,10 +8,13 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, Queryable)]
 pub struct User {
-    id: Uuid, // internal id
-    twitter_id: String,
-    email: Option<String>,
-    list_id: Option<String>, // ? // key list cache
+    pub id: Uuid, // internal id
+    pub twitter_id: String,
+    pub email: Option<String>,
+    list_id: Option<String>, // key list id cache
+    access_nonce: Option<Vec<u8>>, // access keys nonce
+    access_keys: Option<Vec<u8>>, // access keys (bincoded)
+    list_nonce: Option<Vec<u8>>, // key list nonce
 }
 
 impl Default for User {
@@ -20,7 +23,41 @@ impl Default for User {
             id: Uuid::new_v4(),
             twitter_id: "".into(),
             email: None,
+            access_nonce: None,
+            access_keys: None,
             list_id: None,
+            list_nonce: None,
+        }
+    }
+}
+
+impl User {
+    pub fn decrypt_access(&self, master_key: &Key) -> Option<egg_mode::KeyPair> {
+        let nonce = match self.access_nonce {
+            None => return None,
+            Some(ref n) => Nonce::from_slice(n)?
+        };
+
+        let keys = match self.access_keys {
+            None => return None,
+            Some(ref k) => open(k, &nonce, master_key).ok()?
+        };
+
+        let (key, secret): (String, String) = bincode::deserialize(&keys).ok()?;
+        Some(egg_mode::KeyPair::new(key, secret))
+    }
+
+    pub fn get_list_nonce(&self) -> Option<Nonce> {
+        match self.list_nonce {
+            None => None,
+            Some(ref n) => Nonce::from_slice(n),
+        }
+    }
+
+    pub fn get_list_id(&self) -> Option<egg_mode::list::ListID> {
+        match self.list_id {
+            None => None,
+            Some(ref id) => id.parse().map(egg_mode::list::ListID::from_id).ok()
         }
     }
 }
