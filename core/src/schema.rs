@@ -2,6 +2,7 @@ table! {
     reasons (id) {
         id -> Uuid,
         user_id -> Uuid,
+        data_version -> Int4,
         nonce -> Bytea,
         data -> Bytea,
     }
@@ -10,12 +11,10 @@ table! {
 table! {
     users (id) {
         id -> Uuid,
-        twitter_id -> Text,
-        email -> Nullable<Text>,
-        list_id -> Nullable<Text>,
-        access_nonce -> Nullable<Bytea>,
-        access_keys -> Nullable<Bytea>,
-        list_nonce -> Nullable<Bytea>,
+        twitter -> Bytea,
+        data_version -> Int4,
+        nonce -> Bytea,
+        data -> Bytea,
     }
 }
 

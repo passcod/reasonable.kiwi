@@ -4,10 +4,11 @@ extern crate diesel;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use dotenv::dotenv;
+use futures::Stream;
+use plain::Cipher;
 use sodiumoxide::crypto::{box_ as abox, sealedbox, secretbox};
 use std::env;
 use tokio::runtime::current_thread::block_on_all;
-use futures::Stream;
 
 pub mod models;
 pub mod plain;
@@ -32,6 +33,7 @@ fn database() -> PgConnection {
     PgConnection::establish(&url).expect("Error connecting to database")
 }
 
+/*
 fn some_users(conn: &PgConnection) {
     use schema::users::dsl::*;
     let results = users
@@ -58,6 +60,7 @@ fn some_reasons(conn: &PgConnection, key: &secretbox::Key) {
         println!("Dec: {:?}", reason.open(key));
     }
 }
+*/
 
 const LISTKEYBYTES: usize = secretbox::KEYBYTES + secretbox::MACBYTES;
 
@@ -69,6 +72,7 @@ enum E {
     KeyTooShort,
     BadKeyFormat,
     CannotDecrypt,
+    CannotUpdateUser,
     Twitter(egg_mode::error::Error),
     Encoding(base65536::Error),
     Database(diesel::result::Error),
@@ -92,10 +96,10 @@ impl From<diesel::result::Error> for E {
     }
 }
 
-fn user_key(pan: &models::User, egg: &egg_mode::user::TwitterUser, token: &egg_mode::Token, conn: &PgConnection, master_key: &secretbox::Key) -> Result<secretbox::Key, E> {
-    let nonce = pan.get_list_nonce();
+fn user_key(pan: &mut plain::UserStack, egg: &egg_mode::user::TwitterUser, token: &egg_mode::Token, conn: &PgConnection, master_key: &secretbox::Key) -> Result<secretbox::Key, E> {
+    let nonce = pan.plain.list_nonce;
 
-    pan.get_list_id().ok_or(E::NoListID)
+    pan.plain.list().ok_or(E::NoListID)
         .and_then(|id| block_on_all(egg_mode::list::show(id, token)).map_err(E::Twitter))
         .or_else(|_| block_on_all(egg_mode::list::ownerships(&egg.id, token)
             .filter(|list| list.name.starts_with("Reasonable key")).collect()
@@ -130,12 +134,13 @@ fn user_key(pan: &models::User, egg: &egg_mode::user::TwitterUser, token: &egg_m
                 &token
             ))?;
 
+            pan.plain.list_nonce = Some(non);
+            pan.plain.list_id = Some(list.id.into());
+            let update = pan.cipher.update(&pan.plain, master_key).ok_or(E::CannotUpdateUser)?;
+
             {
                 use schema::users::dsl::*;
-                diesel::update(users.find(pan.id)).set((
-                    list_nonce.eq(non.as_ref().to_owned()),
-                    list_id.eq(format!("{}", list.id))
-                )).execute(conn)?;
+                diesel::update(users.find(pan.cipher.id)).set(&update).execute(conn)?;
             }
 
             Ok(key)
@@ -153,37 +158,37 @@ fn main() {
     // some_reasons(&conn, &master_key);
 
     let app_token = egg_mode::KeyPair::new(env!("TWITTER_APP_KEY"), env!("TWITTER_APP_SECRET"));
-    let pan_id = uuid::Uuid::parse_str("2ba595bf-cfaa-4e8b-8aeb-4268724aeedc").unwrap();
+    let pan_id = uuid::Uuid::parse_str("23da46f5-7a61-456e-b0e7-3a6ea1abbd0e").unwrap();
 
-    /*
-    let keys: (String, String) = (env::var("TWITTER_USER_KEY").unwrap(), env::var("TWITTER_USER_SECRET").unwrap());
-    let keys = bincode::serialize(&keys).unwrap();
-    let nonce = secretbox::gen_nonce();
+    if false {
+        let user = plain::User {
+            access_keys: Some((env::var("TWITTER_USER_KEY").unwrap(), env::var("TWITTER_USER_SECRET").unwrap())),
+            twitter_id: 92200252,
+            list_id: None,
+            list_nonce: None,
+        };
+        let user = models::User::new(&user, &master_key);
 
-    let keys = secretbox::seal(&keys, &nonce, &master_key);
-    let nonce: Vec<u8> = (&nonce[..]).into();
-
-    {
         use schema::users::dsl::*;
-        diesel::update(users.find(pan_id)).set((
-            access_nonce.eq(nonce),
-            access_keys.eq(keys)
-        )).execute(&conn);
+        diesel::insert_into(users)
+            .values(&user)
+            .execute(&conn)
+            .unwrap();
     }
-    return; */
 
     let pan = {
         use schema::users::dsl::*;
         users.filter(id.eq(pan_id)).first::<models::User>(&conn).unwrap()
     };
+    let mut pan = pan.open(&master_key).unwrap();
 
     let token = egg_mode::Token::Access {
         consumer: app_token,
-        access: pan.decrypt_access(&master_key).unwrap(),
+        access: pan.plain.keypair().unwrap(),
     };
 
     let egg = block_on_all(egg_mode::verify_tokens(&token)).expect("tokens are invalid");
-    println!("User: “{}” @{} ({} / {})", egg.name, egg.screen_name, egg.id, pan.id);
+    println!("User: “{}” @{} ({} / {})", egg.name, egg.screen_name, egg.id, pan.cipher.id);
 
-    println!("{:?}", user_key(&pan, &egg, &token, &conn, &master_key));
+    println!("{:?}", user_key(&mut pan, &egg, &token, &conn, &master_key));
 }
