@@ -1,5 +1,6 @@
 [workspace]
 members = [
-  "core",
+  "rcore",
   "active-ttl-cache",
+  "rserve",
 ]

@@ -1,0 +1,10 @@
+[package]
+name = "rserve"
+version = "0.1.0"
+authors = ["Félix Saparelli <felix@passcod.name>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+rcore = { path = "../rcore" }
+rocket = "0.4.0"
